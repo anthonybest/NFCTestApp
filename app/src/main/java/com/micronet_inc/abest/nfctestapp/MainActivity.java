@@ -3,6 +3,11 @@ package com.micronet_inc.abest.nfctestapp;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.location.GpsSatellite;
+import android.location.GpsStatus;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.tech.NfcV;
@@ -14,11 +19,15 @@ import android.support.v7.widget.Toolbar;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.WindowManager;
 import android.widget.TextView;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements LocationListener {
 
     private NfcAdapter nfcAdapter;
+    private PendingIntent nfcPendingIntent;
+    private IntentFilter[] intentFiltersArray;
+    private String[][] techListArray;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,24 +45,87 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+
+        LocationManager locationManager;
+
+        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+
+        locationManager.addNmeaListener(new GpsStatus.NmeaListener() {
+            @Override
+            public void onNmeaReceived(long timestamp, String nmea) {
+                TextView textView;
+                if(nmea.startsWith("$GPGGA,,"))
+                    textView = (TextView) findViewById(R.id.textViewGps1);
+                else if(nmea.startsWith("$GPGGA"))
+                    textView = (TextView) findViewById(R.id.textViewGps2);
+                else if(nmea.startsWith("$GPRMC"))
+                    textView = (TextView) findViewById(R.id.textViewGps3);
+                else if(nmea.startsWith("$GPVTG"))
+                    textView = (TextView) findViewById(R.id.textViewGps4);
+                else if(nmea.startsWith("$GPGSA"))
+                    textView = (TextView) findViewById(R.id.textViewGps5);
+                else if(nmea.startsWith("$GPGSV"))
+                    textView = (TextView) findViewById(R.id.textViewGps6);
+                else if(nmea.startsWith("$GLGSV"))
+                    textView = (TextView) findViewById(R.id.textViewGps7);
+                else
+                    textView = (TextView) findViewById(R.id.textViewGps1);
+
+                textView.setText(nmea);
+            }
+        });
+        //GpsStatus gpsStatus = locationManager.getGpsStatus();
+        //Iterable<GpsSatellite> sats = gpsStatus.getSatellites();
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, (float) 0.001, this);
+
+
+
         nfcAdapter = NfcAdapter.getDefaultAdapter(this);
 
-        /*
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, new
+
+        nfcPendingIntent = PendingIntent.getActivity(this, 0, new
                 Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), 0);
 
         IntentFilter ntech = new IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED);
 
-        IntentFilter[] intentFilters = new IntentFilter[]{ntech};
-        String[][] techLists = new String[][]{new String[]{NfcV.class.getName()}};
+        intentFiltersArray = new IntentFilter[]{ntech};
+        techListArray = new String[][] {
+                        new String[]{
+                                NfcV.class.getName()
+                        }
+        };
 
         // forgrround dispatch can only be enabled on resume
         //nfcAdapter.enableForegroundDispatch(this, pendingIntent, intentFilters, techLists);
-        */
+
         handleIntent(getIntent());
 
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
 
+    }
+
+    public void onPause()
+    {
+        super.onPause();
+
+        nfcAdapter.disableForegroundDispatch(this);
+    }
+
+    public void onResume()
+    {
+        super.onResume();
+        nfcAdapter.enableForegroundDispatch(
+                this,
+                nfcPendingIntent,
+                intentFiltersArray,
+                techListArray);
+
+        String action = getIntent().getAction();
+        if(NfcAdapter.ACTION_TECH_DISCOVERED.equals(action))
+        {
+            handleIntent(getIntent());
+        }
     }
 
     final protected static char[] hexArray = "0123456789ABCDEF".toCharArray();
@@ -103,5 +175,25 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+
+    }
+
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {
+
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {
+
+    }
+
+    @Override
+    public void onProviderDisabled(String provider) {
+
     }
 }
